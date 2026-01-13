@@ -282,5 +282,73 @@ namespace MusicPlayerWeb.Controllers
             }
             return RedirectToAction("Index");
         }
+
+        [HttpGet]
+        [ResponseCache(Duration = 3600)] // Cache gambar 1 jam biar cepat
+        public IActionResult GetAlbumArt(int id)
+        {
+            var song = _context.Songs.Find(id);
+            if (song == null) return NotFound();
+
+            try
+            {
+                // Buka file fisik
+                if (System.IO.File.Exists(song.FilePath))
+                {
+                    var tfile = TagLib.File.Create(song.FilePath);
+                    var pic = tfile.Tag.Pictures.FirstOrDefault();
+
+                    // Jika ada gambar di dalam MP3
+                    if (pic != null)
+                    {
+                        return File(pic.Data.Data, pic.MimeType);
+                    }
+                }
+            }
+            catch
+            {
+                // Abaikan error (misal file corrupt/lock)
+            }
+
+            // Jika tidak ada gambar, kembalikan 404 (Nanti di-handle frontend)
+            return NotFound();
+        }
+
+        // HALAMAN GRID ARTIS (Daftar semua artis)
+        public IActionResult Artists()
+        {
+            // Ambil semua artis dan include Songs untuk menghitung jumlah lagu/ambil cover
+            var artists = _context.Artists
+                .Include(a => a.Songs)
+                .OrderBy(a => a.Name)
+                .ToList();
+
+            if (Request.Headers["X-Requested-With"] == "XMLHttpRequest")
+                return PartialView(artists);
+
+            return View(artists);
+        }
+
+        // HALAMAN DETAIL ARTIS (Layout Kiri-Kanan)
+        public IActionResult ArtistDetails(int id)
+        {
+            var artist = _context.Artists
+                .Include(a => a.Songs)
+                .ThenInclude(s => s.Album) // Include album biar lengkap
+                .FirstOrDefault(a => a.Id == id);
+
+            if (artist == null) return NotFound();
+
+            // Ambil ID lagu pertama untuk dijadikan Cover Artis (sementara)
+            // Karena kita belum punya tabel foto artis khusus
+            var firstSongId = artist.Songs.OrderBy(s => s.Title).FirstOrDefault()?.Id ?? 0;
+            ViewBag.CoverSongId = firstSongId;
+
+            if (Request.Headers["X-Requested-With"] == "XMLHttpRequest")
+                return PartialView(artist);
+
+            return View(artist);
+        }
+
     }
 }

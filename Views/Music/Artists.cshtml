@@ -1,0 +1,35 @@
+﻿@model IEnumerable<MusicPlayerWeb.Models.Artist>
+
+@{
+    ViewData["Title"] = "Artists";
+}
+
+<div class="d-flex align-items-center mb-4">
+    <h2 class="text-white fw-bold m-0">Artists</h2>
+</div>
+
+<div class="row row-cols-2 row-cols-md-4 row-cols-lg-5 g-4">
+    @foreach (var artist in Model)
+    {
+        // Cari lagu pertama buat cover thumbnail
+        var firstSong = artist.Songs.FirstOrDefault();
+        var imgUrl = firstSong != null ? $"/Music/GetAlbumArt/{firstSong.Id}" : "";
+
+        <div class="col">
+            <a href="/Music/ArtistDetails/@artist.Id" class="text-decoration-none ajax-link">
+                <div class="card h-100 p-3" style="background-color: #181818; border: none; border-radius: 8px; transition: background-color 0.3s;" onmouseover="this.style.backgroundColor='#282828'" onmouseout="this.style.backgroundColor='#181818'">
+
+                    <div class="ratio ratio-1x1 mb-3">
+                        <img src="@imgUrl"
+                             class="rounded-circle shadow"
+                             style="object-fit: cover;"
+                             onerror="this.src='https://via.placeholder.com/150?text=Artist';" />
+                    </div>
+
+                    <h5 class="text-white fw-bold text-truncate" title="@artist.Name">@artist.Name</h5>
+                    <p class="text-secondary small m-0">Artist</p>
+                </div>
+            </a>
+        </div>
+    }
+</div>

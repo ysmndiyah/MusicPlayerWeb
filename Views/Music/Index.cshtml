@@ -5,22 +5,28 @@
 }
 
 <style>
-    /* Styling List Item spesifik halaman ini (mengikuti XAML) */
     .song-list-item {
         display: grid;
-        grid-template-columns: 65px 1fr 100px 40px; /* Sesuai XAML ColumnDefinitions */
+        grid-template-columns: 65px 1fr 100px 40px;
         align-items: center;
-        padding: 4px 0;
+        padding: 10px 0; /* WPF Padding="10" */
+        margin-bottom: 8px;
+        background-color: #2A3550; /* WPF Background Default */
+
         border-radius: 8px;
-        margin-bottom: 4px;
         cursor: pointer;
-        background: transparent;
         transition: background 0.2s;
+        border-left: 2px solid transparent;
     }
 
-        .song-list-item:hover {
-            background-color: #36405F; /* --bg-item-hover */
-        }
+    .song-list-item:hover {
+        background-color: #36405F;
+    }
+
+    .song-list-item.active {
+        background-color: #3E4C6E; /* Background Selected */
+        border-left-color: #5CD1FF; /* Garis Biru di Kiri */
+    }
 
     /* Cover Box */
     .list-cover-box {
@@ -97,7 +103,16 @@
     .page-header {
         display: flex;
         align-items: center;
-        margin: 10px 0 15px 0;
+        padding: 20px 10px; /* Padding atas bawah & kiri */
+        margin: 0; /* Hilangkan margin agar menempel */
+        position: sticky;
+        top: -16px; /* Offset negatif untuk melawan padding container utama (py-3 bootstrap) */
+        /* 3. VISUAL */
+        z-index: 50; /* Pastikan dia di layer atas, menutupi lagu yang di-scroll */
+        background-color: #1F2945; /* PENTING: Warna background harus sama dengan window agar tidak transparan */
+        margin-left: -24px; /* Melawan px-4 container */
+        margin-right: -24px; /* Melawan px-4 container */
+        padding-left: 34px; /* Mengembalikan padding teks */
     }
 
     .btn-back {
@@ -120,24 +135,25 @@
     {
         @foreach (var song in Model)
         {
-            <div class="song-list-item" onclick="playStream(@song.Id, '@song.Title', '@song.Artist?.Name', '@song.DisplayCoverPath')">
+            <div class="song-list-item"
+                 onclick="playStream(@song.Id,
+                                         '@song.Title.Replace("'", "\\'")',
+                                         '@(song.Artist?.Name?.Replace("'", "\\'") ?? "Unknown")',
+                                         '/Music/GetAlbumArt/@song.Id'); highlightSong(this);">
 
                 <div style="padding-left: 10px;">
                     <div class="list-cover-box">
-                        @if (!string.IsNullOrEmpty(song.Album?.CoverPath))
-                        {
-                            <img src="@song.Album.CoverPath" style="width: 100%; height: 100%; object-fit: cover;" />
-                        }
-                        else
-                        {
-                            <svg class="list-placeholder-icon" viewBox="0 0 24 24">
-                                <path d="M12 3v9.28c-.47-.17-.97-.28-1.5-.28C8.01 12 6 14.01 6 16.5S8.01 21 10.5 21c2.31 0 4.2-1.75 4.45-4H15V6h4V3h-7z" />
-                            </svg>
-                        }
+                        <img src="/Music/GetAlbumArt/@song.Id"
+                             style="width: 100%; height: 100%; object-fit: cover;"
+                             onerror="this.style.display='none'; this.nextElementSibling.style.display='block';" />
+
+                        <svg class="list-placeholder-icon" viewBox="0 0 24 24" style="display:none;">
+                            <path d="M12 3v9.28c-.47-.17-.97-.28-1.5-.28C8.01 12 6 14.01 6 16.5S8.01 21 10.5 21c2.31 0 4.2-1.75 4.45-4H15V6h4V3h-7z" />
+                        </svg>
                     </div>
                 </div>
 
-                <div style="overflow: hidden;">
+                <div style="overflow: hidden;" class="ms-2">
                     <span class="list-title">@song.Title</span>
                     <span class="list-artist">@(song.Artist?.Name ?? "Unknown Artist")</span>
                 </div>
@@ -157,3 +173,12 @@
         <div style="color: #6F7A95; padding: 20px;">No songs found. Click "Scan Local" in the sidebar.</div>
     }
 </div>
+
+<script>
+    function highlightSong(element) {
+        // Hapus class 'active' dari semua lagu
+        document.querySelectorAll('.song-list-item').forEach(el => el.classList.remove('active'));
+        // Tambahkan class 'active' ke lagu yang diklik
+        element.classList.add('active');
+    }
+</script>
