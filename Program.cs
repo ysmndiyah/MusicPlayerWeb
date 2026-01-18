@@ -33,7 +33,6 @@ app.UseRouting();
 
 app.UseAuthorization();
 
-// 4. Routing Default: Masuk ke HomeController -> Index
 app.MapControllerRoute(
     name: "default",
     pattern: "{controller=Music}/{action=Index}/{id?}"); 
