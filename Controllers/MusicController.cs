@@ -36,13 +36,15 @@ namespace MusicPlayerWeb.Controllers
             // 2. LOGIKA FILTER MODE (Menu Atas)
             switch (mode)
             {
-                case "Discover": query = query.OrderByDescending(s => s.DateAdded); break;
-                case "YouTube": query = query.Where(s => s.FilePath.StartsWith("YT:")); break;
-                case "Liked": query = query.Where(s => s.IsLiked); break;
-                case "Albums": query = query.OrderBy(s => s.Album.Title).ThenBy(s => s.Title); break;
-                case "Artists": query = query.OrderBy(s => s.Artist.Name).ThenBy(s => s.Title); break;
-                case "Songs":
-                default: query = query.OrderBy(s => s.Title); break;
+                case "Discover":query = query.OrderByDescending(s => s.DateAdded);break;
+                case "YouTube":query = query.Where(s => s.FilePath.StartsWith("YT:"));break;
+                case "Liked":query = query.Where(s => s.IsLiked);break;
+                case "Albums":query = query.OrderBy(s => s.Album.Title).ThenBy(s => s.Title);break;
+                case "Artists":query = query.OrderBy(s => s.Artist.Name).ThenBy(s => s.Title);break;
+                case "RecentlyPlayed":query = query.Where(s => s.LastPlayedAt != null).OrderByDescending(s => s.LastPlayedAt);break;
+                case "MostPlayed":query = query.OrderByDescending(s => s.PlayCount);break;
+                case "RecentlyAdded":query = query.OrderByDescending(s => s.DateAdded);break;
+                case "Songs":default: query = query.OrderBy(s => s.Title);break;
             }
 
             // [BARU] LOGIKA SEARCH GLOBAL
@@ -273,20 +275,30 @@ namespace MusicPlayerWeb.Controllers
             var song = _context.Songs.Find(id);
             if (song == null) return NotFound();
 
-            // KASUS 1: Lagu dari YouTube (FilePath format: "YT:VideoID")
+            // ==========================================
+            // 🔥 SMART PLAYLIST TRACKING (INI INTINYA)
+            // ==========================================
+            song.PlayCount++;
+            song.LastPlayedAt = DateTime.Now;
+            _context.SaveChanges();
+
+            // ==========================================
+            // KASUS 1: Lagu dari YouTube (YT:VideoID)
+            // ==========================================
             if (song.FilePath.StartsWith("YT:"))
             {
                 try
                 {
-                    var videoId = song.FilePath.Substring(3); // Ambil ID setelah "YT:"
+                    var videoId = song.FilePath.Substring(3);
 
-                    // Dapatkan URL streaming audio sesungguhnya
                     var streamManifest = await _youtubeClient.Videos.Streams.GetManifestAsync(videoId);
-                    var streamInfo = streamManifest.GetAudioOnlyStreams().GetWithHighestBitrate();
+                    var streamInfo = streamManifest
+                        .GetAudioOnlyStreams()
+                        .GetWithHighestBitrate();
 
                     if (streamInfo != null)
                     {
-                        // Redirect player browser langsung ke URL YouTube (Lebih cepat & hemat bandwidth server)
+                        // Redirect langsung ke audio stream YouTube
                         return Redirect(streamInfo.Url);
                     }
                 }
@@ -296,10 +308,19 @@ namespace MusicPlayerWeb.Controllers
                 }
             }
 
+            // ==========================================
             // KASUS 2: Lagu Lokal (File Fisik)
-            if (!System.IO.File.Exists(song.FilePath)) return NotFound();
+            // ==========================================
+            if (!System.IO.File.Exists(song.FilePath))
+                return NotFound();
 
-            var stream = new FileStream(song.FilePath, FileMode.Open, FileAccess.Read, FileShare.Read);
+            var stream = new FileStream(
+                song.FilePath,
+                FileMode.Open,
+                FileAccess.Read,
+                FileShare.Read
+            );
+
             return File(stream, "audio/mpeg", enableRangeProcessing: true);
         }
 

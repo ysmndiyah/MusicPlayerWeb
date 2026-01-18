@@ -20,6 +20,9 @@ namespace MusicPlayerWeb.Models
         public DateTime DateAdded { get; set; } = DateTime.Now;
 
         public bool IsLiked { get; set; } = false;
+        public int PlayCount { get; set; } = 0;
+        public DateTime? LastPlayedAt { get; set; }
+
 
         public int? ArtistId { get; set; }
         [ForeignKey("ArtistId")]
