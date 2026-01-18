@@ -12,7 +12,7 @@ namespace MusicPlayerWeb.Models
         [Required]
         [MaxLength(100)]
         public string Name { get; set; }
-
+        public string? CoverPath { get; set; }
         public DateTime CreatedAt { get; set; } = DateTime.Now;
 
         // Relasi Many-to-Many ke Song melalui tabel perantara PlaylistSong

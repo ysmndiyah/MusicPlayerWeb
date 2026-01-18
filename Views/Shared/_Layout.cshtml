@@ -354,22 +354,41 @@
             background: transparent;
             border: none;
             cursor: pointer;
+            padding: 8px; /* Padding agar hover area enak */
+            border-radius: 8px;
+            /* TRANSISI WARNA HALUS */
+            transition: background-color 0.3s ease, fill 0.3s ease;
         }
 
-            .queue-btn svg {
-                fill: #AEB7D3;
-                width: 18px;
-                height: 18px;
+            .queue-btn:hover {
+                background-color: var(--accent-color); /* Biru #5CD1FF */
             }
 
+            /* Style Saat Aktif (Drawer Terbuka) */
+            .queue-btn.active {
+                background-color: var(--accent-color); /* Biru #5CD1FF */
+            }
+
+            .queue-btn:hover svg{
+                fill: var(--bg-sidebar); /* Biru Gelap #1B2338 */
+            }
+
+            .queue-btn svg {
+                fill: #AEB7D3; /* Abu-abu default */
+                width: 18px;
+                height: 18px;
+                transition: fill 0.3s ease; /* Transisi ikon juga */
+            }
+
+
+            /* Ikon jadi gelap saat tombol aktif */
             .queue-btn.active svg {
-                fill: var(--bg-sidebar);
+                fill: var(--bg-sidebar); /* Biru Gelap #1B2338 */
             }
 
             .queue-btn.active {
-                background: var(--accent-color);
-                border-radius: 8px;
-                padding: 8px;
+                background-color: var(--accent-color); /* Warna Biru #5CD1FF */
+                border-radius: 8px; /* Biar kotak tumpul seperti logo */
             }
 
         ::-webkit-scrollbar {
@@ -400,34 +419,36 @@
             height: 100%;
             background: transparent;
             z-index: 98;
-            display: none; /* Hidden default */
+            display: none;
         }
 
         .queue-drawer {
             position: fixed;
-            bottom: 85px; /* Tinggi Player Bar */
+            bottom: 85px; /* Di atas Player Bar */
             right: 0;
-            /* Lebar Full Player - Sidebar */
+            /* Lebar = Layar - Sidebar */
             width: calc(100% - 260px);
             left: 260px;
-            height: 500px; /* Tinggi Fixed */
+            /* Default Tertutup (Tinggi 0) */
+            height: 0;
             max-height: 60vh;
-            background-color: #1F2945; /* Warna Background Laci (Akan terlihat di celah item) */
+            background-color: #1F2940;
             border-radius: 16px 16px 0 0;
             box-shadow: 0 -5px 20px rgba(0,0,0,0.5);
             z-index: 99;
-            /* HILANGKAN TRANSITION (ANIMASI) */
-            /* transition: height 0.3s ...;  <-- HAPUS INI */
-            /* Default sembunyi */
-            display: none;
+            overflow: hidden;
+            display: flex;
             flex-direction: column;
+            /* ANIMASI SLIDE UP YANG HALUS */
+            transition: height 0.4s cubic-bezier(0.25, 0.8, 0.25, 1);
         }
 
-            /* Saat dibuka, langsung muncul (display: flex) */
+            /* Saat Class .open ditambahkan, tinggi berubah jadi 500px */
             .queue-drawer.open {
-                display: flex;
+                height: 500px;
             }
 
+        /* Header & List tetap sama stylingnya */
         .queue-header {
             padding: 15px 25px;
             border-bottom: 1px solid #2A3550;
@@ -435,8 +456,7 @@
             justify-content: space-between;
             align-items: center;
             flex-shrink: 0;
-            background-color: #1F2945; /* Samakan dengan drawer */
-            border-radius: 16px 16px 0 0;
+            background-color: #1F2940;
         }
 
         .queue-list-container {
@@ -592,10 +612,12 @@
 
                 <div class="menu-label">YOUR LIBRARY</div>
 
-                <button class="nav-btn">
-                    <svg viewBox="0 0 24 24"><path d="M14 10H2v2h12v-2zm0-4H2v2h12V6zm4 8v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zM2 16h8v-2H2v2z" /></svg>
+                <a href="/Playlist/Index" class="nav-btn @(ViewContext.RouteData.Values["Controller"]?.ToString() == "Playlist" ? "active" : "")">
+                    <svg viewBox="0 0 24 24">
+                        <path d="M14 10H2v2h12v-2zm0-4H2v2h12V6zm4 8v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zM2 16h8v-2H2v2z" />
+                    </svg>
                     Playlists
-                </button>
+                </a>
 
                 @{
                     string defaultMusicPath = Environment.GetFolderPath(Environment.SpecialFolder.MyMusic);
@@ -696,7 +718,7 @@
                     <span id="currTime">0:00</span> <span style="color:#586380">/</span> <span id="durTime">0:00</span>
                 </div>
 
-                <button class="queue-btn" onclick="toggleQueue()">
+                <button id="queueBtn" class="queue-btn" onclick="toggleQueue()">
                     <svg viewBox="0 0 24 24"><path d="M3 6h18v2H3V6zm0 5h18v2H3v-2zm0 5h18v2H3v-2z" /></svg>
                 </button>
             </div>
@@ -729,6 +751,7 @@
         const playBtn = document.getElementById('mainPlayBtn');
         const iconPlay = document.getElementById('iconPlay');
         const iconPause = document.getElementById('iconPause');
+        const queueBtn = document.getElementById('queueBtn');
         const progFill = document.getElementById('progFill');
         const playerImg = document.getElementById('playerImg');
         const playerPlaceholder = document.getElementById('playerPlaceholder');
@@ -839,27 +862,37 @@
         }
 
             // 1. Buka/Tutup Drawer
-            function toggleQueue() {
+             function toggleQueue() {
             isQueueOpen = !isQueueOpen;
 
             if (isQueueOpen) {
-                // Tambah class .open -> CSS mengubah display: none menjadi display: flex
+                // 1. Buka Drawer (Animasi CSS height jalan otomatis)
                 queueDrawer.classList.add('open');
-                queueOverlay.style.display = 'block';
+                queueOverlay.style.display = 'block'; // Overlay tetap display block/none
+
+                // 2. Ubah Warna Tombol (Animasi CSS background jalan otomatis)
+                queueBtn.classList.add('active');
 
                 renderQueueUI();
 
-                // Scroll ke lagu yang main (opsional, timeout kecil agar render selesai dulu)
+                // Scroll sedikit delay agar animasi slide mulai dulu baru scroll
                 setTimeout(() => {
                     if(currentIndex >= 0 && queueListContent.children[currentIndex]) {
-                        queueListContent.children[currentIndex].scrollIntoView({ behavior: 'auto', block: 'center' });
+                        queueListContent.children[currentIndex].scrollIntoView({ behavior: 'smooth', block: 'center' });
                     }
-                }, 10);
+                }, 300); // 300ms sesuai durasi animasi
 
             } else {
-                // Hapus class .open -> CSS mengubah jadi display: none
+                // 1. Tutup Drawer
                 queueDrawer.classList.remove('open');
-                queueOverlay.style.display = 'none';
+
+                // Sembunyikan overlay setelah animasi selesai (opsional, atau langsung juga boleh)
+                setTimeout(() => {
+                     if(!isQueueOpen) queueOverlay.style.display = 'none';
+                }, 300);
+
+                // 2. Kembalikan Warna Tombol
+                queueBtn.classList.remove('active');
             }
         }
 
