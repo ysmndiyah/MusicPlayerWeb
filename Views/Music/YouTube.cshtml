@@ -1,0 +1,398 @@
+﻿@{
+    ViewData["Title"] = "YouTube Search";
+}
+
+<style>
+    /* --- ANIMASI SEARCH BAR --- */
+    .yt-container {
+        transition: all 0.5s cubic-bezier(0.25, 0.8, 0.25, 1);
+        min-height: 80vh; /* Default: Tinggi penuh agar di tengah */
+        display: flex;
+        flex-direction: column;
+        justify-content: center; /* Vertikal tengah */
+        align-items: center; /* Horizontal tengah */
+    }
+
+        /* Saat sudah mencari (Mode Atas) */
+        .yt-container.has-searched {
+            min-height: auto;
+            justify-content: flex-start;
+            align-items: flex-start;
+            margin-bottom: 30px;
+        }
+
+    .yt-header {
+        text-align: center;
+        transition: all 0.5s;
+        margin-bottom: 30px;
+    }
+
+    .yt-container.has-searched .yt-header {
+        display: flex;
+        align-items: center;
+        margin-bottom: 0;
+        width: 100%;
+    }
+
+    /* Logo & Judul */
+    .yt-brand {
+        font-size: 32px;
+        font-weight: bold;
+        color: white;
+        margin-bottom: 15px;
+        transition: all 0.5s;
+    }
+
+    .yt-container.has-searched .yt-brand {
+        font-size: 24px;
+        margin-bottom: 0;
+        margin-right: 20px;
+        display: flex; /* Biar sejajar sama input */
+        align-items: center;
+    }
+
+    /* Input Box */
+    .yt-input-wrapper {
+        width: 600px; /* Lebar awal besar */
+        max-width: 100%;
+        position: relative;
+        transition: all 0.5s;
+    }
+
+    .yt-container.has-searched .yt-input-wrapper {
+        width: 400px; /* Mengecil saat di atas */
+    }
+
+    .yt-input {
+        width: 100%;
+        background-color: #2A3550;
+        border: 2px solid #3E4C6E;
+        color: white;
+        border-radius: 30px;
+        padding: 15px 25px 15px 50px; /* Padding kiri buat icon */
+        font-size: 18px;
+        outline: none;
+        transition: border-color 0.2s;
+    }
+
+    .yt-container.has-searched .yt-input {
+        padding: 10px 20px 10px 45px;
+        font-size: 14px;
+    }
+
+    .yt-input:focus {
+        border-color: #FF0000; /* Warna Merah YouTube */
+    }
+
+    .search-icon-big {
+        position: absolute;
+        left: 20px;
+        top: 50%;
+        transform: translateY(-50%);
+        color: #6F7A95;
+        font-size: 20px;
+    }
+
+    /* --- REUSE STYLE DARI ALBUMS.CSHTML --- */
+    /* Agar tampilan konsisten dengan file yang kamu upload */
+    .playlist-card {
+        background-color: #1B2338;
+        padding: 16px;
+        border-radius: 8px;
+        transition: background-color 0.3s;
+        cursor: pointer;
+        display: block;
+        text-decoration: none;
+        height: 100%;
+        position: relative; /* Penting buat tombol add */
+    }
+
+        .playlist-card:hover {
+            background-color: #2A3550;
+        }
+
+    .cover-container {
+        width: 100%;
+        aspect-ratio: 16 / 9; /* YouTube Thumbnail Landscape */
+        border-radius: 4px;
+        overflow: hidden;
+        margin-bottom: 12px;
+        position: relative;
+    }
+
+    .pl-title {
+        color: white;
+        font-weight: 700;
+        font-size: 14px;
+        margin-bottom: 4px;
+        display: -webkit-box;
+        -webkit-line-clamp: 2;
+        -webkit-box-orient: vertical;
+        overflow: hidden;
+    }
+
+    .pl-desc {
+        color: #AEB7D3;
+        font-size: 12px;
+    }
+
+    /* Tombol Add Overlay */
+    .btn-add-overlay {
+        position: absolute;
+        bottom: 10px;
+        right: 10px;
+        background-color: #FF0000;
+        color: white;
+        border: none;
+        border-radius: 50%;
+        width: 35px;
+        height: 35px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 20px;
+        opacity: 0; /* Hidden default */
+        transform: translateY(10px);
+        transition: all 0.2s;
+        box-shadow: 0 4px 10px rgba(0,0,0,0.5);
+    }
+
+    .playlist-card:hover .btn-add-overlay {
+        opacity: 1;
+        transform: translateY(0);
+    }
+
+    .btn-add-overlay:hover {
+        background-color: #cc0000;
+        transform: scale(1.1);
+    }
+
+    /* Loading Spinner */
+    .loader-area {
+        display: none;
+        text-align: center;
+        padding: 50px;
+    }
+
+    .playlist-card:hover .cover-placeholder {
+        opacity: 1 !important;
+    }
+</style>
+
+<div id="searchContainer" class="yt-container">
+
+    <div class="yt-header">
+        <div class="yt-brand">
+            <span style="color:#FF0000; margin-right: 5px;">▶</span> YouTube Search
+        </div>
+
+        <div class="yt-input-wrapper">
+            <span class="search-icon-big">🔍</span>
+            <input type="text" id="ytMainInput" class="yt-input"
+                   placeholder="Search for songs, artist, or videos..."
+                   autocomplete="off"
+                   onkeydown="handleYtEnter(event)">
+        </div>
+    </div>
+
+</div>
+
+<div id="resultArea" style="display:none;">
+
+    <div id="ytLoader" class="loader-area">
+        <div class="spinner-border text-danger" role="status" style="width: 3rem; height: 3rem;"></div>
+        <div style="color:#6F7A95; margin-top:10px;">Searching YouTube...</div>
+    </div>
+
+    <div id="ytGrid" class="row row-cols-2 row-cols-md-3 row-cols-lg-4 row-cols-xl-5 g-4">
+    </div>
+
+</div>
+
+<script>
+    // 1. Pastikan DOM sudah siap sebelum menjalankan logic
+    // Kita bungkus semua dalam fungsi init agar bisa dipanggil ulang jika perlu
+    function initYouTubePage() {
+        console.log("YouTube Page Init Started...");
+
+        // --- GLOBAL STATE SETUP ---
+        if (!window.ytGlobalState) {
+            window.ytGlobalState = {
+                hasSearched: false,
+                query: "",
+                results: [],
+                scrollPos: 0
+            };
+            console.log("Global State Initialized (Empty)");
+        } else {
+            console.log("Global State Found:", window.ytGlobalState);
+        }
+
+        // Variabel lokal referensi ke global
+        // (Kita akses langsung window.ytGlobalState di dalam fungsi agar selalu fresh)
+
+        // --- RESTORE LOGIC ---
+        restoreState();
+    }
+
+    function restoreState() {
+        const state = window.ytGlobalState;
+        const container = document.getElementById('searchContainer');
+        const resultArea = document.getElementById('resultArea');
+        const input = document.getElementById('ytMainInput');
+        const grid = document.getElementById('ytGrid');
+
+        // PENTING: Cek apakah elemen ada? Jika belum, hentikan (tunggu next cycle)
+        if (!container || !input || !resultArea) {
+            console.warn("Element HTML belum siap, menunggu...");
+            // Coba lagi 50ms kemudian
+            setTimeout(restoreState, 50);
+            return;
+        }
+
+        if (state.hasSearched) {
+            console.log("Restoring previous search...");
+
+            // 1. UI Transition
+            container.classList.add('has-searched');
+            resultArea.style.display = 'block';
+
+            // 2. Isi Value
+            input.value = state.query;
+
+            // 3. Render Grid Langsung (Tanpa Fetch)
+            renderGrid(state.results);
+        } else {
+            console.log("No previous search to restore.");
+        }
+    }
+
+    // --- MAIN SEARCH HANDLER ---
+    function handleYtEnter(e) {
+        if (e.key === 'Enter') {
+            const query = e.target.value;
+            if(!query.trim()) return;
+
+            // UI Transitions
+            const container = document.getElementById('searchContainer');
+            const resultArea = document.getElementById('resultArea');
+            container.classList.add('has-searched');
+            resultArea.style.display = 'block';
+
+            document.getElementById('ytLoader').style.display = 'block';
+            document.getElementById('ytGrid').innerHTML = '';
+
+            console.log("Fetching YouTube:", query);
+
+            fetch('/Music/SearchYoutube?query=' + encodeURIComponent(query))
+                .then(res => res.json())
+                .then(data => {
+                    document.getElementById('ytLoader').style.display = 'none';
+
+                    // --- SIMPAN KE STATE GLOBAL ---
+                    window.ytGlobalState.hasSearched = true;
+                    window.ytGlobalState.query = query;
+                    window.ytGlobalState.results = data;
+
+                    console.log("Search saved to Global State");
+
+                    renderGrid(data);
+                })
+                .catch(err => {
+                    console.error("Search Error:", err);
+                    document.getElementById('ytLoader').style.display = 'none';
+                });
+        }
+    }
+
+    // --- RENDER FUNCTION ---
+    function renderGrid(data) {
+        const grid = document.getElementById('ytGrid');
+        if (!grid) return;
+
+        if (!data || data.length === 0) {
+            grid.innerHTML = '<p style="color:#6F7A95; width:100%; text-align:center;">No results found.</p>';
+            return;
+        }
+
+        let html = '';
+        data.forEach((item, index) => {
+            // Escape string agar aman saat dijadikan parameter fungsi
+            // Kita jadikan objek item menjadi JSON string untuk dikirim ke fungsi menu
+            const itemJson = JSON.stringify(item).replace(/"/g, '&quot;');
+
+            html += `
+            <div class="col">
+                <div class="playlist-card"
+                     onclick="playSearchContext(${index})"
+                     oncontextmenu="openYoutubeMenu(event, ${itemJson})">
+
+                    <div class="cover-container">
+                        <img src="${item.thumbnail}" style="width:100%; height:100%; object-fit:cover;">
+                        <div style="position:absolute; bottom:5px; right:5px; background:rgba(0,0,0,0.8); color:white; font-size:10px; padding:2px 4px; border-radius:4px;">
+                            ${item.duration}
+                        </div>
+                    </div>
+
+                    <div class="pl-title" title="${item.title}">${item.title}</div>
+                    <div class="pl-desc">${item.author}</div>
+
+                    </div>
+            </div>`;
+        });
+        grid.innerHTML = html;
+    }
+
+    // --- PLAY CONTEXT ---
+    function playSearchContext(startIndex) {
+        const data = window.ytGlobalState.results;
+        if(!data || data.length === 0) return;
+
+        const newQueue = data.map(item => {
+            return {
+                id: "TEMP_" + item.id,
+                title: item.title,
+                artist: item.author,
+                cover: item.thumbnail,
+                url: '/Music/StreamYoutubeId?videoId=' + item.id,
+                element: null
+            };
+        });
+
+        playlist = newQueue;
+        renderQueueUI();
+        playIndexFromQueue(startIndex);
+    }
+
+    // --- ADD LIBRARY (Sama) ---
+    function addToLibrary(id, title, author, durationStr) {
+        let parts = durationStr.split(':');
+        let seconds = 0;
+        if (parts.length === 2) { seconds = parseInt(parts[0]) * 60 + parseInt(parts[1]); }
+        else if (parts.length === 3) { seconds = parseInt(parts[0]) * 3600 + parseInt(parts[1]) * 60 + parseInt(parts[2]); }
+
+        const formData = new FormData();
+        formData.append('videoId', id);
+        formData.append('title', title);
+        formData.append('author', author);
+        formData.append('durationSec', seconds);
+
+        const btn = event.currentTarget;
+        const originalText = btn.innerHTML;
+        btn.innerHTML = "✓";
+        btn.style.backgroundColor = "#4CAF50";
+
+        fetch('/Music/AddYoutubeToLibrary', { method: 'POST', body: formData })
+        .then(res => res.json())
+        .catch(err => {
+             btn.innerHTML = "!";
+             btn.style.backgroundColor = "red";
+        });
+    }
+
+    // --- [CRITICAL FIX] ---
+    // Jangan panggil langsung, tapi gunakan setTimeout agar HTML render dulu
+    // 100ms biasanya cukup aman
+    setTimeout(initYouTubePage, 100);
+
+</script>

@@ -4,16 +4,22 @@ using MusicPlayerWeb.Models;
 using System.IO;
 using System.Linq;
 using TagLib; // Pastikan TagLib sudah diinstall
+using YoutubeExplode;
+using YoutubeExplode.Common;
+using YoutubeExplode.Videos.Streams;
 
 namespace MusicPlayerWeb.Controllers
 {
     public class MusicController : Controller
     {
         private readonly ApplicationDbContext _context;
+        // TAMBAHAN: Inisialisasi YoutubeClient
+        private readonly YoutubeClient _youtubeClient;
 
         public MusicController(ApplicationDbContext context)
         {
             _context = context;
+            _youtubeClient = new YoutubeClient(); // Instance baru
         }
 
         // ==========================================
@@ -260,13 +266,39 @@ namespace MusicPlayerWeb.Controllers
             _context.SaveChanges();
         }
 
-        // 3. PLAY: Streaming Audio ke Browser
-        // URL: /Music/PlayStream?id=123
+        // 3. PLAY: Streaming Audio (Support Local & YouTube)
         [HttpGet]
-        public IActionResult PlayStream(int id)
+        public async Task<IActionResult> PlayStream(int id)
         {
             var song = _context.Songs.Find(id);
-            if (song == null || !System.IO.File.Exists(song.FilePath)) return NotFound();
+            if (song == null) return NotFound();
+
+            // KASUS 1: Lagu dari YouTube (FilePath format: "YT:VideoID")
+            if (song.FilePath.StartsWith("YT:"))
+            {
+                try
+                {
+                    var videoId = song.FilePath.Substring(3); // Ambil ID setelah "YT:"
+
+                    // Dapatkan URL streaming audio sesungguhnya
+                    var streamManifest = await _youtubeClient.Videos.Streams.GetManifestAsync(videoId);
+                    var streamInfo = streamManifest.GetAudioOnlyStreams().GetWithHighestBitrate();
+
+                    if (streamInfo != null)
+                    {
+                        // Redirect player browser langsung ke URL YouTube (Lebih cepat & hemat bandwidth server)
+                        return Redirect(streamInfo.Url);
+                    }
+                }
+                catch
+                {
+                    return NotFound("Gagal mendapatkan stream YouTube.");
+                }
+            }
+
+            // KASUS 2: Lagu Lokal (File Fisik)
+            if (!System.IO.File.Exists(song.FilePath)) return NotFound();
+
             var stream = new FileStream(song.FilePath, FileMode.Open, FileAccess.Read, FileShare.Read);
             return File(stream, "audio/mpeg", enableRangeProcessing: true);
         }
@@ -290,6 +322,14 @@ namespace MusicPlayerWeb.Controllers
         {
             var song = _context.Songs.Find(id);
             if (song == null) return NotFound();
+
+            // Handle YouTube
+            if (song.FilePath.StartsWith("YT:"))
+            {
+                string videoId = song.FilePath.Substring(3);
+                string thumbUrl = $"https://img.youtube.com/vi/{videoId}/mqdefault.jpg";
+                return Redirect(thumbUrl); // Redirect ke CDN YouTube
+            }
 
             try
             {
@@ -409,6 +449,119 @@ namespace MusicPlayerWeb.Controllers
                 return PartialView(album);
 
             return View(album);
+        }
+
+        // ==========================================
+        // FITUR YOUTUBE: SEARCH
+        // ==========================================
+        [HttpGet]
+        public async Task<IActionResult> SearchYoutube(string query)
+        {
+            if (string.IsNullOrEmpty(query)) return BadRequest("Query kosong");
+
+            try
+            {
+                // Ambil 10 hasil teratas
+                var searchResults = await _youtubeClient.Search.GetVideosAsync(query).CollectAsync(15);
+
+                var results = searchResults.Select(v => new
+                {
+                    Id = v.Id.Value,
+                    Title = v.Title,
+                    Author = v.Author.ChannelTitle,
+                    Duration = v.Duration.HasValue ? v.Duration.Value.ToString(@"mm\:ss") : "Live",
+                    Thumbnail = v.Thumbnails.OrderByDescending(t => t.Resolution.Area).FirstOrDefault()?.Url
+                });
+
+                return Ok(results);
+            }
+            catch (Exception ex)
+            {
+                return BadRequest("Gagal mencari: " + ex.Message);
+            }
+        }
+
+        [HttpPost]
+        public IActionResult AddYoutubeToLibrary(string videoId, string title, string author, int durationSec)
+        {
+            // Cek duplikasi
+            string ytPath = "YT:" + videoId;
+            if (_context.Songs.Any(s => s.FilePath == ytPath))
+            {
+                return Ok(new { message = "Lagu sudah ada di library." });
+            }
+
+            // Handle Artist (Cari atau Buat baru)
+            var artist = _context.Artists.FirstOrDefault(a => a.Name == author);
+            if (artist == null)
+            {
+                artist = new Artist { Name = author };
+                _context.Artists.Add(artist);
+            }
+
+            // Handle Album (Kita buat Album dummy khusus YouTube atau nama Channelnya)
+            var album = _context.Albums.FirstOrDefault(a => a.Title == "YouTube Imports" && a.Artist.Id == artist.Id);
+            if (album == null)
+            {
+                album = new Album { Title = "YouTube Imports", Artist = artist, Year = DateTime.Now.Year };
+                _context.Albums.Add(album);
+            }
+
+            // Simpan Lagu
+            var song = new Song
+            {
+                Title = title,
+                Duration = durationSec, // Pastikan konversi durasi benar dari frontend
+                FilePath = ytPath, // Format Kunci: "YT:VideoID"
+                DateAdded = DateTime.Now,
+                Artist = artist,
+                Album = album,
+                IsLiked = false
+            };
+
+            _context.Songs.Add(song);
+            _context.SaveChanges();
+
+            return Ok(new { message = "Berhasil ditambahkan!", id = song.Id });
+        }
+
+        // 1. PERBAIKAN: Cegah Layout Ganda
+        public IActionResult YouTube()
+        {
+            ViewData["Title"] = "YouTube Search";
+
+            // Jika dipanggil via AJAX (SPA Navigation), return PartialView (Tanpa Layout)
+            if (Request.Headers["X-Requested-With"] == "XMLHttpRequest")
+            {
+                return PartialView();
+            }
+
+            // Jika akses langsung via Browser URL, return View biasa (Pakai Layout)
+            return View();
+        }
+
+        // 2. TAMBAHAN: Streaming langsung bermodal VideoId (Tanpa masuk DB dulu)
+        [HttpGet]
+        public async Task<IActionResult> StreamYoutubeId(string videoId)
+        {
+            if (string.IsNullOrEmpty(videoId)) return BadRequest();
+
+            try
+            {
+                // Dapatkan URL streaming audio sesungguhnya
+                var streamManifest = await _youtubeClient.Videos.Streams.GetManifestAsync(videoId);
+                var streamInfo = streamManifest.GetAudioOnlyStreams().GetWithHighestBitrate();
+
+                if (streamInfo != null)
+                {
+                    return Redirect(streamInfo.Url);
+                }
+                return NotFound();
+            }
+            catch
+            {
+                return NotFound();
+            }
         }
     }
 }

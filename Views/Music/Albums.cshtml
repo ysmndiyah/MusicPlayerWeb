@@ -157,7 +157,7 @@
                 </div>
 
                 <div class="pl-title">@album.Title</div>
-                <div class="pl-desc">@album.Artist.Name</div>
+                <div class="pl-desc">@album.Artist.Name • @album.Songs.GroupBy(s => s.Title).Count() songs</div>
             </a>
         </div>
     }

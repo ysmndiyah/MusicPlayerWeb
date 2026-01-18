@@ -60,10 +60,25 @@
         margin: 0;
         letter-spacing: -2px;
         white-space: nowrap;
-        overflow: hidden;
         text-overflow: ellipsis;
         max-width: 800px;
     }
+
+    .cover-placeholder {
+        width: 100%;
+        height: 100%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background-color: #2A3550;
+        color: #6F7A95;
+    }
+
+        .cover-placeholder svg {
+            width: 50%;
+            height: 50%;
+            fill: currentColor;
+        }
 
     .btn-edit-title {
         background: transparent;
@@ -439,7 +454,11 @@
         }
         else
         {
-            <svg viewBox="0 0 24 24" style="width:64px; height:64px; fill:#586380;"><path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z" /></svg>
+            <div class="cover-placeholder">
+                <svg viewBox="0 0 24 24">
+                    <path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z" />
+                </svg>
+            </div>
         }
     </div>
 
