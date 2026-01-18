@@ -218,10 +218,6 @@
         padding: 0 10px;
     }
 
-    .detail-song-list {
-        padding: 0 10px;
-    }
-
     .song-list-item {
         display: grid;
         grid-template-columns: 65px 1fr 100px 40px;
@@ -506,8 +502,8 @@
                  data-artist="@(song.Artist?.Name ?? "Unknown")"
                  data-cover="/Music/GetAlbumArt/@song.Id"
                  data-url="/Music/PlayStream?id=@song.Id"
-                 onclick="playFromQueue(this)">
-
+                 onclick="playFromQueue(this)"
+                 oncontextmenu="openSongMenu(event, @song.Id, @(song.IsLiked.ToString().ToLower()), true)">
                 <div style="padding-left: 10px;">
                     <div class="list-cover-box">
                         <img src="/Music/GetAlbumArt/@song.Id"
@@ -529,7 +525,7 @@
                 </div>
 
                 <div>
-                    <button class="btn-more" onclick="event.stopPropagation(); alert('Context menu placeholder');">⋮</button>
+                    <button class="btn-more" onclick="openSongMenu(event, @song.Id, @(song.IsLiked.ToString().ToLower()), true)">⋮</button>
                 </div>
             </div>
         }
@@ -615,10 +611,10 @@
 <script>
     // --- VARIABEL GLOBAL ---
     // Gunakan 'var' (bukan const) agar aman saat reload script parsial
-    var activePlaylistId = @Model.Id; 
+    var activePlaylistId = @Model.Id;
     var selectedSongIds = new Set();
 
-    // --- FUNGSI HEADER (Rename, Remove, Play, Edit) ---
+    // --- FUNGSI HEADER (Rename, Play, Edit) ---
     function renamePlaylistPrompt(id, currentName) {
         let newName = prompt("Rename playlist:", currentName);
         if (newName != null && newName.trim() !== "" && newName !== currentName) {
@@ -632,20 +628,22 @@
         }
     }
 
-    function removeFromPlaylist(playlistId, songId) {
+    // Fungsi Remove Helper untuk Context Menu
+    // Dipanggil dari _Layout.cshtml (menuAction -> remove)
+    function removeFromPlaylistContext(songId) {
         if(!confirm("Remove this song from playlist?")) return;
         fetch('/Playlist/RemoveSong', {
             method: 'POST',
             headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-            body: 'playlistId=' + playlistId + '&songId=' + songId
+            body: 'playlistId=' + activePlaylistId + '&songId=' + songId
         }).then(res => {
-            if (res.ok) loadPage('/Playlist/Details/' + playlistId);
+            if (res.ok) loadPage('/Playlist/Details/' + activePlaylistId);
         });
     }
 
     function playAllSongsInPlaylist() {
         const firstSong = document.querySelector('.song-list-item');
-        if(firstSong) playFromQueue(firstSong);
+        if (firstSong) playFromQueue(firstSong);
     }
 
     function openEditModal() {
@@ -667,29 +665,20 @@
         }
     }
 
-    // --- FUNGSI ADD SONGS (YANG DIPERBAIKI) ---
+    // --- FUNGSI ADD SONGS ---
 
-    // 1. Terima ID saat tombol diklik (Memperbaiki Bug Playlist Salah)
     function openAddSongsModal(id) {
-        activePlaylistId = id; // Update ID aktif ke playlist yang diklik sekarang
-        
+        activePlaylistId = id;
         var myModal = new bootstrap.Modal(document.getElementById('addSongsModal'));
         myModal.show();
-
-        // Reset
         selectedSongIds.clear();
         updateSelectedCount();
         document.getElementById('addSongSearch').value = '';
-        
-        // Load data
         fetchAvailableSongs();
     }
 
-    // 2. Fetch menggunakan ID aktif
     function fetchAvailableSongs(query = "") {
         const container = document.getElementById('addSongsListContainer');
-        
-        // Gunakan 'activePlaylistId' bukan '@Model.Id' statis
         fetch(`/Playlist/GetAvailableSongs?playlistId=${activePlaylistId}&query=${encodeURIComponent(query)}`)
             .then(res => res.json())
             .then(data => {
@@ -731,7 +720,6 @@
         document.getElementById('selectedCount').innerText = selectedSongIds.size;
     }
 
-    // 3. Submit dengan Pembersihan Layar Gelap (Fix Bug Layar Gelap)
     function submitSelectedSongs() {
         if (selectedSongIds.size === 0) {
             alert("Please select at least one song.");
@@ -748,22 +736,12 @@
             body: formData
         }).then(res => {
             if (res.ok) {
-                // --- FIX LAYAR GELAP ---
-                
-                // A. Sembunyikan Modal Secara API
                 const modalEl = document.getElementById('addSongsModal');
                 const modalInstance = bootstrap.Modal.getInstance(modalEl);
                 if (modalInstance) modalInstance.hide();
-
-                // B. Hapus Paksa Elemen Backdrop (Pembersih Hantu)
-                // Cari semua elemen backdrop bootstrap dan hapus
                 document.querySelectorAll('.modal-backdrop').forEach(el => el.remove());
-                
-                // C. Reset class di body agar bisa scroll lagi
                 document.body.classList.remove('modal-open');
-                document.body.style = ""; // Reset padding-right dsb
-
-                // D. Baru reload halaman
+                document.body.style = "";
                 loadPage('/Playlist/Details/' + activePlaylistId);
             } else {
                 alert("Failed to add songs.");

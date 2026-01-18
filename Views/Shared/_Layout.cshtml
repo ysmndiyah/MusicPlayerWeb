@@ -1447,7 +1447,9 @@
         // Load Playlist (Submenu)
         function loadUserPlaylists() {
             const listContainer = document.getElementById('ctxPlaylistItems');
-            fetch('/Playlist/GetUserPlaylists')
+
+            // FIX: Kirim activeSongId ke server untuk difilter
+            fetch('/Playlist/GetUserPlaylists?songId=' + activeSongId)
                 .then(res => res.json())
                 .then(data => {
                     cachedPlaylists = data;

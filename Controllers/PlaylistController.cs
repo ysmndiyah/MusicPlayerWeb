@@ -354,14 +354,22 @@ namespace MusicPlayerWeb.Controllers
 
         // GET: /Playlist/GetUserPlaylists
         [HttpGet]
-        public IActionResult GetUserPlaylists()
+        [HttpGet]
+        public IActionResult GetUserPlaylists(int? songId = null)
         {
-            var playlists = _context.Playlists
+            var query = _context.Playlists.AsQueryable();
+
+            // Filter playlist yang SUDAH mengandung lagu ini
+            if (songId.HasValue)
+            {
+                query = query.Where(p => !p.PlaylistSongs.Any(ps => ps.SongId == songId.Value));
+            }
+
+            var playlists = query
                 .OrderBy(p => p.Name)
                 .Select(p => new {
                     id = p.Id,
                     name = p.Name,
-                    // Opsional: Cek jumlah lagu 
                     count = p.PlaylistSongs.Count
                 })
                 .ToList();
